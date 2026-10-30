@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Slide Puzzle</title><link rel="stylesheet" href="../style.css">
+<style>#b{display:grid;gap:6px;width:min(90vw,400px)}
+.p{aspect-ratio:1;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:bold;cursor:pointer;user-select:none}
+.p.e{background:transparent;cursor:default}.p.ok{background:#7cf08a;color:#1b1640}</style></head>
+<body>
+<a class="back" href="../index.html">← All games</a>
+<h1>🔢 Slide Puzzle</h1>
+<div class="bar"><select id="sz"><option value="3">3×3</option><option value="4" selected>4×4</option><option value="5">5×5</option></select><button id="new">Shuffle</button></div>
+<div class="bar"><span class="stat">Moves: <b id="mv">0</b></span><span class="stat">Best: <b id="best">-</b></span></div>
+<div id="b"></div><p class="msg" id="msg">Click a tile next to the empty space, or use arrow keys.</p>
+<script>
+const $=id=>document.getElementById(id);let N,t,moves,done;
+function bestKey(){return'slideBest'+N}
+function render(){const b=$('b');b.style.gridTemplateColumns=`repeat(${N},1fr)`;b.innerHTML='';
+t.forEach((v,i)=>{const d=document.createElement('div');d.className='p'+(v?'':' e')+(v&&v===i+1?' ok':'');d.textContent=v||'';d.onclick=()=>tap(i);b.appendChild(d)});
+$('mv').textContent=moves;$('best').textContent=localStorage.getItem(bestKey())||'-'}
+function swap(i){const e=t.indexOf(0);[t[i],t[e]]=[t[e],t[i]]}
+function adj(i,e){return(Math.abs(i-e)===N)||(Math.abs(i-e)===1&&Math.floor(i/N)===Math.floor(e/N))}
+function tap(i){if(done)return;const e=t.indexOf(0);if(!adj(i,e))return;swap(i);moves++;
+if(t.every((v,k)=>v===(k+1)%(N*N))){done=true;const b=+localStorage.getItem(bestKey())||Infinity;if(moves<b)localStorage.setItem(bestKey(),moves);$('msg').textContent=`🎉 Solved in ${moves} moves!`}render()}
+function newGame(){N=+$('sz').value;t=[...Array(N*N).keys()].map(k=>(k+1)%(N*N));moves=0;done=false;
+let last=-1;for(let k=0;k<N*N*40;k++){const e=t.indexOf(0),opts=[e-N,e+N,e-1,e+1].filter(i=>i>=0&&i<N*N&&adj(i,e)&&i!==last);last=e;swap(opts[Math.floor(Math.random()*opts.length)])}
+if(t.every((v,k)=>v===(k+1)%(N*N)))return newGame();$('msg').textContent='Click a tile next to the empty space, or use arrow keys.';render()}
+addEventListener('keydown',e=>{const z=t.indexOf(0),m={ArrowUp:z+N,ArrowDown:z-N,ArrowLeft:z+1,ArrowRight:z-1}[e.key];if(m!==undefined){e.preventDefault();if(m>=0&&m<N*N&&adj(m,z))tap(m)}});
+$('new').onclick=newGame;$('sz').onchange=newGame;newGame();
+</script></body></html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brick Smash</title><link rel="stylesheet" href="../style.css"></head>
+<body>
+<a class="back" href="../index.html">← All games</a>
+<h1>🧱 Brick Smash</h1>
+<div class="bar"><span class="stat">Score: <b id="score">0</b></span><span class="stat">Lives: <b id="lives">3</b></span><span class="stat">Level: <b id="level">1</b></span><span class="stat">Best: <b id="best">0</b></span></div>
+<canvas id="c" width="560" height="440"></canvas>
+<p class="msg" id="msg">Move with the mouse or ← →. Click or press Space to launch.</p>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d'),W=c.width,H=c.height;
+const $=id=>document.getElementById(id),msg=$('msg');
+let best=+(localStorage.getItem('bricksBest')||0);$('best').textContent=best;
+const COLORS=['#ff6fb5','#ffb86b','#ffe66d','#7cf08a','#5ce1e6','#a68bff'];
+let pad={w:90,x:W/2-45},ball,bricks,score=0,lives=3,level=1,stuck=true,over=false,left=false,right=false;
+function build(){bricks=[];const rows=Math.min(3+level,8),cols=10,bw=(W-40)/cols;
+for(let r=0;r<rows;r++)for(let i=0;i<cols;i++)bricks.push({x:20+i*bw,y:50+r*22,w:bw-4,h:18,col:COLORS[r%COLORS.length],hp:r<level-1?2:1})}
+function resetBall(){stuck=true;ball={x:pad.x+pad.w/2,y:H-40,r:7,vx:0,vy:0}}
+function launch(){if(over){score=0;lives=3;level=1;over=false;build();upd()}if(stuck){stuck=false;const sp=4+level*.5;ball.vx=sp*(Math.random()-.5);ball.vy=-sp;msg.textContent=''}}
+function upd(){$('score').textContent=score;$('lives').textContent=lives;$('level').textContent=level}
+function loop(){
+if(left)pad.x-=8;if(right)pad.x+=8;pad.x=Math.max(0,Math.min(W-pad.w,pad.x));
+if(stuck){ball.x=pad.x+pad.w/2;ball.y=H-40}else{ball.x+=ball.vx;ball.y+=ball.vy;
+if(ball.x<ball.r||ball.x>W-ball.r){ball.vx*=-1;ball.x=Math.max(ball.r,Math.min(W-ball.r,ball.x))}
+if(ball.y<ball.r){ball.vy=Math.abs(ball.vy)}
+if(ball.vy>0&&ball.y+ball.r>=H-30&&ball.y<H-20&&ball.x>pad.x-ball.r&&ball.x<pad.x+pad.w+ball.r){
+const sp=Math.hypot(ball.vx,ball.vy),hit=(ball.x-(pad.x+pad.w/2))/(pad.w/2);const a=hit*1.05;ball.vx=sp*Math.sin(a);ball.vy=-sp*Math.cos(a)}
+if(ball.y>H+20){lives--;upd();if(lives<=0){over=true;stuck=true;msg.textContent='Game over! Click to play again.';
+if(score>best){best=score;localStorage.setItem('bricksBest',best);$('best').textContent=best}}else msg.textContent='Oops! Click to launch.';resetBall()}
+for(const b of bricks){if(b.hp<=0)continue;
+if(ball.x+ball.r>b.x&&ball.x-ball.r<b.x+b.w&&ball.y+ball.r>b.y&&ball.y-ball.r<b.y+b.h){
+const ox=Math.min(ball.x+ball.r-b.x,b.x+b.w-(ball.x-ball.r)),oy=Math.min(ball.y+ball.r-b.y,b.y+b.h-(ball.y-ball.r));
+if(ox<oy)ball.vx*=-1;else ball.vy*=-1;b.hp--;score+=10;upd();break}}
+if(bricks.every(b=>b.hp<=0)){level++;upd();build();resetBall();msg.textContent='Level '+level+'! Click to launch.'}}
+x.fillStyle='#0f0b2b';x.fillRect(0,0,W,H);
+for(const b of bricks)if(b.hp>0){x.fillStyle=b.col;x.globalAlpha=b.hp>1?1:.85;x.beginPath();x.roundRect(b.x,b.y,b.w,b.h,4);x.fill();
+if(b.hp>1){x.strokeStyle='#fff';x.lineWidth=2;x.stroke()}}x.globalAlpha=1;
+x.fillStyle='#5ce1e6';x.beginPath();x.roundRect(pad.x,H-30,pad.w,10,5);x.fill();
+x.fillStyle='#fff';x.beginPath();x.arc(ball.x,ball.y,ball.r,0,7);x.fill();
+requestAnimationFrame(loop)}
+c.addEventListener('mousemove',e=>{const r=c.getBoundingClientRect();pad.x=(e.clientX-r.left)*W/r.width-pad.w/2});
+c.addEventListener('touchmove',e=>{e.preventDefault();const r=c.getBoundingClientRect();pad.x=(e.touches[0].clientX-r.left)*W/r.width-pad.w/2},{passive:false});
+c.addEventListener('click',launch);c.addEventListener('touchstart',launch);
+addEventListener('keydown',e=>{if(e.key==='ArrowLeft')left=true;if(e.key==='ArrowRight')right=true;if(e.key===' '){e.preventDefault();launch()}});
+addEventListener('keyup',e=>{if(e.key==='ArrowLeft')left=false;if(e.key==='ArrowRight')right=false});
+build();resetBall();loop();
+</script></body></html>

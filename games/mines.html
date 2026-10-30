@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mine Sweep</title><link rel="stylesheet" href="../style.css">
+<style>#b{display:grid;gap:2px;user-select:none}
+.m{width:30px;height:30px;background:#5a4fb0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;font-size:16px}
+.m.o{background:#1f1a4a;cursor:default}.m.boom{background:#ff5470}
+.n1{color:#5ce1e6}.n2{color:#7cf08a}.n3{color:#ff6fb5}.n4{color:#ffb86b}.n5{color:#ffe66d}.n6,.n7,.n8{color:#fff}</style></head>
+<body>
+<a class="back" href="../index.html">← All games</a>
+<h1>💣 Mine Sweep</h1>
+<div class="bar"><select id="lvl"><option value="9,9,10">Easy</option><option value="12,12,24" selected>Medium</option><option value="16,16,40">Hard</option></select>
+<button id="flag" class="alt">Mode: Dig ⛏️</button><button id="new">New game</button></div>
+<div class="bar"><span class="stat">💣 Left: <b id="left">0</b></span><span class="stat">⏱ <b id="time">0</b>s</span></div>
+<div id="b"></div><p class="msg" id="msg">Click to dig. Right-click (or use Flag mode) to place a flag.</p>
+<script>
+const $=id=>document.getElementById(id);let W,H,M,cells,started,over,flags,opened,t0,tick,flagMode=false;
+function nb(i){const x=i%W,y=Math.floor(i/W),o=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const a=x+dx,b=y+dy;if((dx||dy)&&a>=0&&b>=0&&a<W&&b<H)o.push(b*W+a)}return o}
+function newGame(){[W,H,M]=$('lvl').value.split(',').map(Number);cells=Array.from({length:W*H},()=>({mine:false,open:false,flag:false,n:0}));
+started=over=false;flags=0;opened=0;clearInterval(tick);$('time').textContent=0;$('left').textContent=M;$('msg').textContent='Click to dig. Right-click (or use Flag mode) to place a flag.';
+const b=$('b');b.style.gridTemplateColumns=`repeat(${W},30px)`;b.innerHTML='';
+cells.forEach((c,i)=>{const d=document.createElement('div');d.className='m';d.onclick=()=>flagMode?flag(i):dig(i);d.oncontextmenu=e=>{e.preventDefault();flag(i)};b.appendChild(d)})}
+function seed(safe){const no=new Set([safe,...nb(safe)]);let k=0;while(k<M){const i=Math.floor(Math.random()*W*H);if(!no.has(i)&&!cells[i].mine){cells[i].mine=true;k++}}
+cells.forEach((c,i)=>c.n=nb(i).filter(j=>cells[j].mine).length);started=true;t0=Date.now();tick=setInterval(()=>$('time').textContent=Math.floor((Date.now()-t0)/1000),500)}
+function show(i){const c=cells[i],d=$('b').children[i];d.className='m'+(c.open?' o':'');d.textContent=c.flag&&!c.open?'🚩':'';
+if(c.open){if(c.mine)d.textContent='💣';else if(c.n){d.textContent=c.n;d.classList.add('n'+c.n)}}}
+function dig(i){if(over)return;if(!started)seed(i);const c=cells[i];if(c.flag)return;
+if(c.open){const f=nb(i).filter(j=>cells[j].flag).length;if(c.n&&f===c.n)nb(i).forEach(j=>{if(!cells[j].open&&!cells[j].flag)dig(j)});return}
+if(c.mine){over=true;clearInterval(tick);cells.forEach((q,j)=>{if(q.mine){q.open=true;show(j)}});$('b').children[i].classList.add('boom');$('msg').textContent='💥 Boom! Try again.';return}
+const st=[i];while(st.length){const k=st.pop(),q=cells[k];if(q.open||q.flag)continue;q.open=true;opened++;show(k);if(!q.n)nb(k).forEach(j=>{if(!cells[j].open)st.push(j)})}
+if(opened===W*H-M){over=true;clearInterval(tick);$('msg').textContent=`🎉 You cleared it in ${$('time').textContent} seconds!`}}
+function flag(i){if(over)return;const c=cells[i];if(c.open)return;c.flag=!c.flag;flags+=c.flag?1:-1;$('left').textContent=M-flags;show(i)}
+$('flag').onclick=()=>{flagMode=!flagMode;$('flag').textContent=flagMode?'Mode: Flag 🚩':'Mode: Dig ⛏️'};
+$('new').onclick=newGame;$('lvl').onchange=newGame;newGame();
+</script></body></html>

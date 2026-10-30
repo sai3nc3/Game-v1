@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tic-Tac-Toe</title><link rel="stylesheet" href="../style.css">
+<style>#b{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:min(90vw,360px)}
+.t{aspect-ratio:1;background:var(--panel);border-radius:14px;font-size:4rem;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold}
+.t.X{color:#ff6fb5}.t.O{color:#5ce1e6}.t.win{background:#3d7a4a}</style></head>
+<body>
+<a class="back" href="../index.html">← All games</a>
+<h1>❌ Tic-Tac-Toe ⭕</h1>
+<div class="bar"><select id="mode"><option value="2">2 players</option><option value="easy">vs Computer (easy)</option><option value="hard">vs Computer (hard)</option></select>
+<button id="new">New game</button></div>
+<div class="bar"><span class="stat">X: <b id="sx">0</b></span><span class="stat">Ties: <b id="st">0</b></span><span class="stat">O: <b id="so">0</b></span></div>
+<div id="b"></div><p class="msg" id="msg"></p>
+<script>
+const $=id=>document.getElementById(id),L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+let g,turn,done,score={X:0,O:0,T:0},starter='O';
+function winner(b){for(const l of L)if(b[l[0]]&&b[l[0]]===b[l[1]]&&b[l[0]]===b[l[2]])return l;return null}
+function mm(b,p){const w=winner(b);if(w)return{s:b[w[0]]==='O'?10:-10};if(b.every(Boolean))return{s:0};
+let best={s:p==='O'?-99:99};for(let i=0;i<9;i++)if(!b[i]){b[i]=p;const r=mm(b,p==='O'?'X':'O');b[i]='';r.s-=Math.sign(r.s);
+if(p==='O'?r.s>best.s:r.s<best.s)best={s:r.s,i}}return best}
+function render(){$('b').innerHTML='';g.forEach((v,i)=>{const d=document.createElement('div');d.className='t '+v;d.textContent=v;d.onclick=()=>play(i,true);$('b').appendChild(d)})}
+function play(i,human){if(done||g[i])return;const mode=$('mode').value;if(human&&mode!=='2'&&turn==='O')return;
+g[i]=turn;const w=winner(g);render();
+if(w){done=true;w.forEach(k=>$('b').children[k].classList.add('win'));score[turn]++;$('msg').textContent=turn+' wins! 🎉'}
+else if(g.every(Boolean)){done=true;score.T++;$('msg').textContent="It's a tie!"}
+else{turn=turn==='X'?'O':'X';$('msg').textContent=turn+"'s turn"}
+$('sx').textContent=score.X;$('so').textContent=score.O;$('st').textContent=score.T;
+if(!done&&mode!=='2'&&turn==='O')setTimeout(cpu,400)}
+function cpu(){const mode=$('mode').value,free=g.map((v,i)=>v?-1:i).filter(i=>i>=0);
+const i=(mode==='easy'&&Math.random()<.6)?free[Math.floor(Math.random()*free.length)]:mm([...g],'O').i;play(i,false)}
+function newGame(){g=Array(9).fill('');done=false;starter=starter==='X'?'O':'X';turn=starter;render();$('msg').textContent=turn+"'s turn";
+if($('mode').value!=='2'&&turn==='O')setTimeout(cpu,400)}
+$('new').onclick=newGame;$('mode').onchange=()=>{score={X:0,O:0,T:0};newGame()};newGame();
+</script></body></html>

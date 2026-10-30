@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Match</title><link rel="stylesheet" href="../style.css">
+<style>
+#board{display:grid;gap:8px;width:min(92vw,520px)}
+.mc{aspect-ratio:1;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:2.2rem;cursor:pointer;user-select:none;transition:transform .2s}
+.mc.up{background:#fff;transform:rotateY(180deg)}.mc.up span{transform:rotateY(180deg)}
+.mc span{visibility:hidden}.mc.up span,.mc.done span{visibility:visible}
+.mc.done{background:#7cf08a;cursor:default}
+</style></head>
+<body>
+<a class="back" href="../index.html">← All games</a>
+<h1>🃏 Memory Match</h1>
+<div class="bar">
+<select id="size"><option value="4">Easy (16)</option><option value="6" selected>Medium (24)</option><option value="8">Hard (32)</option></select>
+<select id="players"><option value="1">1 player</option><option value="2">2 players</option></select>
+<button id="new">New game</button></div>
+<div class="bar" id="stats"></div>
+<div id="board"></div>
+<p class="msg" id="msg"></p>
+<script>
+const EMOJI=['🐶','🐱','🦊','🐼','🐸','🦄','🐙','🦋','🍕','🍩','🌮','🍓','⚽','🎸','🚀','🌈','🎈','🍦','🐢','🦖'];
+const $=id=>document.getElementById(id);
+let first,lock,moves,turn,pts,players,left;
+function stats(){$('stats').innerHTML=players===1?`<span class="stat">Moves: <b>${moves}</b></span>`:
+[0,1].map(p=>`<span class="stat" style="${turn===p?'outline:3px solid #ff6fb5':''}">Player ${p+1}: <b>${pts[p]}</b></span>`).join('')}
+function newGame(){const cols=+$("size").value,n=cols*2;
+players=+$('players').value;first=null;lock=false;moves=0;turn=0;pts=[0,0];left=n;$('msg').textContent='';
+const pick=[...EMOJI].sort(()=>Math.random()-.5).slice(0,n),deck=[...pick,...pick].sort(()=>Math.random()-.5);
+const b=$('board');b.style.gridTemplateColumns=`repeat(${cols},1fr)`;b.innerHTML='';
+deck.forEach(e=>{const d=document.createElement('div');d.className='mc';d.innerHTML='<span>'+e+'</span>';d.dataset.e=e;d.onclick=()=>flip(d);b.appendChild(d)});stats()}
+function flip(d){if(lock||d.classList.contains('up')||d.classList.contains('done'))return;d.classList.add('up');
+if(!first){first=d;return}moves++;const a=first;first=null;
+if(a.dataset.e===d.dataset.e){setTimeout(()=>{a.classList.add('done');d.classList.add('done')},300);pts[turn]++;left--;
+if(!left)$('msg').textContent=players===1?`You did it in ${moves} moves! 🎉`:pts[0]===pts[1]?"It's a tie! 🤝":`Player ${pts[0]>pts[1]?1:2} wins! 🎉`}
+else{lock=true;setTimeout(()=>{a.classList.remove('up');d.classList.remove('up');lock=false;if(players===2)turn=1-turn;stats()},900)}stats()}
+$('new').onclick=newGame;newGame();
+</script></body></html>

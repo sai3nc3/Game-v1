@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Word Balloon</title><link rel="stylesheet" href="../style.css">
+<style>#balloons{font-size:2.6rem;min-height:3.2rem;letter-spacing:4px}
+#word{font-size:2.4rem;letter-spacing:10px;font-weight:bold;margin:12px 0}
+#keys{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:560px}
+#keys button{width:42px;padding:10px 0}#keys button:disabled{opacity:.3;cursor:default}
+#hint{color:var(--accent2);font-weight:bold}</style></head>
+<body>
+<a class="back" href="../index.html">← All games</a>
+<h1>🎈 Word Balloon</h1>
+<p>Guess the word one letter at a time. Each wrong guess pops a balloon!</p>
+<div class="bar"><select id="cat"><option value="all">Any category</option></select><button id="new">New word</button><button id="custom" class="alt">Friend picks a word</button></div>
+<div id="hint"></div><div id="balloons"></div><div id="word"></div><div id="keys"></div><p class="msg" id="msg"></p>
+<script>
+const WORDS={Animals:['ELEPHANT','GIRAFFE','PENGUIN','DOLPHIN','KANGAROO','OCTOPUS','HAMSTER','CHEETAH','FLAMINGO','TURTLE','RABBIT','SQUIRREL'],
+Food:['PANCAKE','SPAGHETTI','PIZZA','STRAWBERRY','POPCORN','BURRITO','CUPCAKE','PRETZEL','AVOCADO','WAFFLE','SANDWICH','PINEAPPLE'],
+Places:['BEACH','LIBRARY','MUSEUM','VOLCANO','DESERT','JUNGLE','AIRPORT','CASTLE','HOTEL','STADIUM','ISLAND','MOUNTAIN'],
+School:['PENCIL','NOTEBOOK','TEACHER','RECESS','SCIENCE','HOMEWORK','BACKPACK','LOCKER','CALCULATOR','ERASER','SPELLING','FIELDTRIP'],
+Fun:['RAINBOW','BIRTHDAY','SLEEPOVER','UNICORN','ROLLERCOASTER','TRAMPOLINE','SNOWMAN','FIREWORKS','BUBBLES','KARAOKE','PUZZLE','DRAGON']};
+const $=id=>document.getElementById(id),MAX=7;let word,guessed,wrong,done;
+Object.keys(WORDS).forEach(k=>$('cat').add(new Option(k,k)));
+function start(w,cat){word=w;guessed=new Set();wrong=0;done=false;$('msg').textContent='';$('hint').textContent=cat?'Category: '+cat:'';
+$('keys').innerHTML='';for(const ch of'ABCDEFGHIJKLMNOPQRSTUVWXYZ'){const b=document.createElement('button');b.textContent=ch;b.id='k'+ch;b.onclick=()=>guess(ch);$('keys').appendChild(b)}render()}
+function rand(){let cat=$('cat').value;if(cat==='all'){const ks=Object.keys(WORDS);cat=ks[Math.floor(Math.random()*ks.length)]}const l=WORDS[cat];start(l[Math.floor(Math.random()*l.length)],cat)}
+function render(){$('word').textContent=[...word].map(c=>/[A-Z]/.test(c)?(guessed.has(c)||done?c:'_'):c).join('');
+$('balloons').textContent='🎈'.repeat(MAX-wrong)+'💥'.repeat(wrong)}
+function guess(ch){if(done||guessed.has(ch))return;guessed.add(ch);$('k'+ch).disabled=true;if(!word.includes(ch))wrong++;
+if([...word].every(c=>!/[A-Z]/.test(c)||guessed.has(c))){done=true;$('msg').textContent='🎉 You got it!'}
+else if(wrong>=MAX){done=true;$('msg').textContent='All the balloons popped! The word was '+word+'.'}render()}
+addEventListener('keydown',e=>{const k=e.key.toUpperCase();if(/^[A-Z]$/.test(k))guess(k)});
+$('new').onclick=rand;$('custom').onclick=()=>{const w=(prompt('Type a secret word (letters only). Don\'t let the guesser see!')||'').toUpperCase().replace(/[^A-Z ]/g,'').trim();if(w)start(w,'Picked by a friend')};
+rand();
+</script></body></html>
