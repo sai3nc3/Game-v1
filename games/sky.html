@@ -6,38 +6,54 @@
 <h1>🚀 Star Hopper</h1>
 <div class="bar"><span class="stat">Height: <b id="score">0</b></span><span class="stat">Best: <b id="best">0</b></span></div>
 <canvas id="c" width="360" height="560"></canvas>
-<p class="msg" id="msg">← → or A/D to move (or tap the sides). Press Space or click to start.</p>
+<p class="msg" id="msg">← → or A/D to move. Tap Space (or ↑) to jump. Purple clouds crumble, so don't stand on them too long! Press Space to start.</p>
 <script>
 const c=document.getElementById('c'),x=c.getContext('2d'),W=c.width,H=c.height,$=id=>document.getElementById(id);
 let best=+(localStorage.getItem('skyBest')||0);$('best').textContent=best;
-let p,clouds,stars,height,running=false,left=false,right=false;
-function reset(){p={x:W/2,y:H-80,vx:0,vy:-11};height=0;clouds=[];stars=[];
-for(let y=H-20;y>-40;y-=70)addCloud(y);Object.assign(clouds[0],{x:W/2-35,fragile:false,vx:0});
+let p,clouds,stars,height,running=false,left=false,right=false,jumpBuf=0;
+const JUMP=-11.5,FEET=14;
+function reset(){height=0;clouds=[];stars=[];jumpBuf=0;
+for(let y=H-20;y>-40;y-=70)addCloud(y);Object.assign(clouds[0],{x:W/2-35,fragile:false,vx:0,spring:false});
+p={x:W/2,y:clouds[0].y-FEET,vx:0,vy:0,on:clouds[0],air:0};
 for(let i=0;i<40;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+.3})}
 function addCloud(y){const lvl=height/1000,moving=Math.random()<Math.min(.4,lvl*.1),fragile=Math.random()<Math.min(.3,lvl*.08);
-clouds.push({x:Math.random()*(W-70),y,w:70,vx:moving?(Math.random()<.5?-1:1)*(1+lvl*.3):0,fragile,gone:false,spring:!fragile&&Math.random()<.07})}
-function start(){reset();running=true;$('msg').textContent=''}
-function loop(){if(running){
-p.vx=(right?5:0)-(left?5:0);p.x+=p.vx;if(p.x<-15)p.x=W+15;if(p.x>W+15)p.x=-15;
-p.vy+=.4;p.y+=p.vy;
-if(p.vy>0)for(const cl of clouds){if(cl.gone)continue;if(p.x>cl.x-8&&p.x<cl.x+cl.w+8&&p.y+14>cl.y&&p.y+14<cl.y+16){
-if(cl.fragile){cl.gone=true;continue}p.vy=cl.spring?-18:-11}}
+clouds.push({x:Math.random()*(W-70),y,w:70,vx:moving?(Math.random()<.5?-1:1)*(1+lvl*.3):0,fragile,gone:false,t:0,spring:!fragile&&Math.random()<.07})}
+function start(){reset();running=true;$('msg').textContent='Space to jump!'}
+const over=(cl)=>p.x>cl.x-8&&p.x<cl.x+cl.w+8;
+function step(){if(!running)return;
 for(const cl of clouds){cl.x+=cl.vx;if(cl.x<0||cl.x>W-cl.w)cl.vx*=-1}
+p.vx=(right?5:0)-(left?5:0);p.x+=p.vx;
+if(p.on){const cl=p.on;p.x+=cl.vx;
+ // purple clouds crumble a moment after you land on them
+ if(cl.fragile&&++cl.t>35)cl.gone=true;
+ if(cl.gone||!over(cl)){p.on=null;p.air=0}else{p.y=cl.y-FEET;p.vy=0}}
+if(p.x<-15)p.x=W+15;if(p.x>W+15)p.x=-15;
+// a tap shortly before landing, or just after stepping off a cloud, still counts
+if(jumpBuf>0&&(p.on||p.air<6)){p.vy=JUMP;p.on=null;p.air=99;jumpBuf=0}
+if(jumpBuf>0)jumpBuf--;
+if(!p.on){p.air++;const prev=p.y+FEET;p.vy+=.4;p.y+=p.vy;
+ if(p.vy>0)for(const cl of clouds){if(cl.gone||!over(cl))continue;if(prev<=cl.y&&p.y+FEET>=cl.y){
+  if(cl.spring){p.y=cl.y-FEET;p.vy=-18}else{p.on=cl;p.y=cl.y-FEET;p.vy=0}break}}}
 if(p.y<H/2.5){const d=H/2.5-p.y;p.y+=d;height+=d;clouds.forEach(cl=>cl.y+=d);stars.forEach(s=>{s.y+=d*.3;if(s.y>H){s.y-=H;s.x=Math.random()*W}})}
 clouds=clouds.filter(cl=>cl.y<H+20);let top=Math.min(...clouds.map(cl=>cl.y));while(top>-40){top-=60+Math.min(40,height/400);addCloud(top)}
 $('score').textContent=Math.floor(height/10);
 if(p.y>H+30){running=false;const s=Math.floor(height/10);$('msg').textContent=`You fell! Height ${s}. Press Space or click to try again.`;
 if(s>best){best=s;localStorage.setItem('skyBest',best);$('best').textContent=best}}}
-const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0f0b2b');g.addColorStop(1,'#3a2a7a');x.fillStyle=g;x.fillRect(0,0,W,H);
+function draw(){const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0f0b2b');g.addColorStop(1,'#3a2a7a');x.fillStyle=g;x.fillRect(0,0,W,H);
 x.fillStyle='#fff';stars.forEach(s=>{x.beginPath();x.arc(s.x,s.y,s.r,0,7);x.fill()});
-for(const cl of clouds){if(cl.gone)continue;x.fillStyle=cl.fragile?'#c9a7ff':'#fff';x.globalAlpha=cl.fragile?.7:1;x.beginPath();x.roundRect(cl.x,cl.y,cl.w,12,6);x.fill();
-if(cl.spring){x.fillStyle='#ffd23f';x.fillRect(cl.x+cl.w/2-6,cl.y-6,12,6)}}x.globalAlpha=1;
-if(p){x.font='30px serif';x.textAlign='center';x.textBaseline='middle';x.fillText('🐰',p.x,p.y)}
-requestAnimationFrame(loop)}
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='arrowleft'||k==='a')left=true;if(k==='arrowright'||k==='d')right=true;if(k===' '){e.preventDefault();if(!running)start()}});
+for(const cl of clouds){if(cl.gone)continue;const shake=cl.t?(Math.random()-.5)*cl.t/8:0;x.fillStyle=cl.fragile?'#c9a7ff':'#fff';x.globalAlpha=cl.fragile?.7:1;
+x.beginPath();x.roundRect(cl.x+shake,cl.y,cl.w,12,6);x.fill();if(cl.spring){x.fillStyle='#ffd23f';x.fillRect(cl.x+cl.w/2-6,cl.y-6,12,6)}}x.globalAlpha=1;
+x.font='30px serif';x.textAlign='center';x.textBaseline='middle';x.fillText('🐰',p.x,p.y)}
+let last=performance.now(),acc=0;
+function frame(t){acc+=Math.min(100,t-last);last=t;while(acc>=1000/60){step();acc-=1000/60}draw();requestAnimationFrame(frame)}
+function jump(){if(!running)start();else jumpBuf=8}
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='arrowleft'||k==='a')left=true;if(k==='arrowright'||k==='d')right=true;
+if(k===' '||k==='arrowup'||k==='w'){e.preventDefault();if(!e.repeat)jump()}});
 addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k==='arrowleft'||k==='a')left=false;if(k==='arrowright'||k==='d')right=false});
-function touch(e){e.preventDefault();if(!running){start();return}const r=c.getBoundingClientRect(),tx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;left=tx<r.width/2;right=!left}
+// touch/click: left third moves left, right third moves right, middle jumps
+function touch(e){e.preventDefault();if(!running){start();return}const r=c.getBoundingClientRect(),tx=((e.touches?e.touches[0].clientX:e.clientX)-r.left)/r.width;
+if(tx<1/3)left=true;else if(tx>2/3)right=true;else jump()}
 c.addEventListener('mousedown',touch);c.addEventListener('touchstart',touch,{passive:false});
 ['mouseup','mouseleave','touchend'].forEach(ev=>c.addEventListener(ev,()=>{left=right=false}));
-reset();loop();
+reset();requestAnimationFrame(frame);
 </script></body></html>
