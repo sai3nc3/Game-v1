@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reversi</title><link rel="stylesheet" href="../style.css">
+<style>#b{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;background:#1d6b45;padding:6px;border-radius:12px;width:min(94vw,480px)}
+.sq{aspect-ratio:1;background:#2e8b57;border-radius:4px;display:flex;align-items:center;justify-content:center}
+.sq.ok{cursor:pointer}.sq.ok::after{content:'';width:22%;height:22%;border-radius:50%;background:rgba(0,0,0,.3)}
+.dk{width:84%;height:84%;border-radius:50%;transition:background .3s}.dk.b{background:#111}.dk.w{background:#fafafa}
+.sq.last{box-shadow:inset 0 0 0 3px #ffd23f}</style></head>
+<body>
+<a class="back" href="../index.html">← All games</a>
+<h1>⚫ Reversi ⚪</h1>
+<div class="bar"><select id="lvl"><option value="1">Easy</option><option value="3" selected>Medium</option><option value="5">Hard</option></select><button id="new">New game</button></div>
+<div class="bar"><span class="stat">⚫ You: <b id="sb">2</b></span><span class="stat">⚪ Computer: <b id="sw">2</b></span></div>
+<div id="b"></div><p class="msg" id="msg"></p>
+<p style="max-width:480px;text-align:center;font-size:.9rem">Place a disc so you trap the computer's discs in a line between yours. They flip to your color! Most discs at the end wins. Corners are super strong.</p>
+<script>
+const $=id=>document.getElementById(id),D=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+const WT=[[100,-20,10,5,5,10,-20,100],[-20,-50,-2,-2,-2,-2,-50,-20],[10,-2,1,1,1,1,-2,10],[5,-2,1,0,0,1,-2,5],[5,-2,1,0,0,1,-2,5],[10,-2,1,1,1,1,-2,10],[-20,-50,-2,-2,-2,-2,-50,-20],[100,-20,10,5,5,10,-20,100]];
+let b,busy,over,last=null;
+function flips(b,r,c,s){if(b[r][c])return[];const out=[];for(const[dr,dc]of D){const line=[];let i=r+dr,j=c+dc;
+while(i>=0&&i<8&&j>=0&&j<8&&b[i][j]===-s){line.push([i,j]);i+=dr;j+=dc}if(line.length&&i>=0&&i<8&&j>=0&&j<8&&b[i][j]===s)out.push(...line)}return out}
+function moves(b,s){const m=[];for(let r=0;r<8;r++)for(let c=0;c<8;c++){const f=flips(b,r,c,s);if(f.length)m.push({r,c,f})}return m}
+function play(b,m,s){const n=b.map(r=>[...r]);n[m.r][m.c]=s;m.f.forEach(([i,j])=>n[i][j]=s);return n}
+function count(b,s){return b.flat().filter(v=>v===s).length}
+function ev(b,s){let v=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++)v+=b[r][c]*WT[r][c];return s*v+5*(moves(b,s).length-moves(b,-s).length)}
+function nm(b,s,d,a,be){const ms=moves(b,s);if(!d)return ev(b,s);
+if(!ms.length){if(!moves(b,-s).length)return s*(count(b,1)-count(b,-1))*1000;return -nm(b,-s,d-1,-be,-a)}
+for(const m of ms){const v=-nm(play(b,m,s),-s,d-1,-be,-a);if(v>a)a=v;if(a>=be)break}return a}
+function cpu(){const ms=moves(b,-1),d=+$('lvl').value;let best=-Infinity,pick;
+for(const m of ms){const v=-nm(play(b,m,-1),1,d-1,-Infinity,Infinity)+Math.random()*(d===1?40:.5);if(v>best){best=v;pick=m}}
+b=play(b,pick,-1);last=[pick.r,pick.c];busy=false;next(1)}
+function next(s){render();const mine=moves(b,1).length,theirs=moves(b,-1).length;
+if(!mine&&!theirs){over=true;const B=count(b,1),Wc=count(b,-1);$('msg').textContent=B>Wc?'🎉 You win!':B<Wc?'The computer wins. Try again!':"It's a tie!";return}
+if(s===1&&!mine){$('msg').textContent="You have no moves, so you pass.";busy=true;setTimeout(cpu,900);return}
+if(s===-1&&!theirs){$('msg').textContent='The computer has to pass. Your turn!';return}
+if(s===-1){busy=true;$('msg').textContent='Computer is thinking...';setTimeout(cpu,500)}else $('msg').textContent='Your turn'}
+function render(){const el=$('b');el.innerHTML='';const ok=new Set(busy||over?[]:moves(b,1).map(m=>m.r+','+m.c));
+for(let r=0;r<8;r++)for(let c=0;c<8;c++){const d=document.createElement('div');d.className='sq';if(ok.has(r+','+c))d.classList.add('ok');
+if(last&&last[0]===r&&last[1]===c)d.classList.add('last');if(b[r][c]){const k=document.createElement('div');k.className='dk '+(b[r][c]>0?'b':'w');d.appendChild(k)}
+d.onclick=()=>{if(busy||over)return;const f=flips(b,r,c,1);if(!f.length)return;b=play(b,{r,c,f},1);last=[r,c];next(-1)};el.appendChild(d)}
+$('sb').textContent=count(b,1);$('sw').textContent=count(b,-1)}
+function newGame(){b=[...Array(8)].map(()=>Array(8).fill(0));b[3][3]=b[4][4]=-1;b[3][4]=b[4][3]=1;busy=over=false;last=null;next(1)}
+$('new').onclick=newGame;newGame();
+</script></body></html>

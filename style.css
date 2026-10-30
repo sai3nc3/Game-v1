@@ -19,3 +19,4 @@ canvas{background:#0f0b2b;border-radius:12px;max-width:100%;touch-action:none}
 .msg{font-size:1.2rem;font-weight:bold;min-height:1.5em;text-align:center}
 .stat{background:var(--panel);padding:6px 12px;border-radius:8px}
 select{background:var(--panel);color:var(--text);border:2px solid var(--accent2);border-radius:10px;padding:8px 10px;font-size:1rem;font-family:inherit}
+.sec{width:100%;max-width:960px;margin:28px 0 0;font-size:1.4rem;color:var(--accent2)}

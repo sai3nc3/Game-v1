@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Checkers</title><link rel="stylesheet" href="../style.css">
+<style>#b{display:grid;grid-template-columns:repeat(8,1fr);width:min(94vw,480px);border:6px solid #5a4fb0;border-radius:10px;overflow:hidden}
+.sq{aspect-ratio:1;display:flex;align-items:center;justify-content:center;position:relative}
+.sq.l{background:#e8dcff}.sq.d{background:#3d3480}.sq.sel{background:#7a6ad8}.sq.tgt{cursor:pointer}
+.sq.tgt::after{content:'';width:30%;height:30%;border-radius:50%;background:#7cf08a;position:absolute}
+.pc{width:78%;height:78%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:inset 0 -4px 0 rgba(0,0,0,.3)}
+.pc.r{background:#ff5470;cursor:pointer}.pc.k{background:#222}.sq.last{box-shadow:inset 0 0 0 3px #ffd23f}</style></head>
+<body>
+<a class="back" href="../index.html">← All games</a>
+<h1>🔴 Checkers ⚫</h1>
+<div class="bar"><select id="lvl"><option value="1">Easy</option><option value="3" selected>Medium</option><option value="6">Hard</option></select><button id="new">New game</button></div>
+<div id="b"></div><p class="msg" id="msg"></p>
+<p style="max-width:480px;text-align:center;font-size:.9rem">You are red and move up. If you can jump, you must! Reach the far side to get a 👑 king that moves both ways.</p>
+<script>
+const $=id=>document.getElementById(id);let b,sel=null,cands=[],stepI=0,busy=false,over=false,lastMv=[];
+function init(){b=[...Array(8)].map((_,r)=>[...Array(8)].map((_,c)=>(r+c)%2?(r<3?-1:r>4?1:0):0))}
+function dirs(p){const s=Math.sign(p);return Math.abs(p)===2?[[1,1],[1,-1],[-1,1],[-1,-1]]:[[-s,1],[-s,-1]]}
+const inb=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
+function jumps(b,r,c,p,caps,path,out){let any=false;
+for(const[dr,dc]of dirs(p)){const mr=r+dr,mc=c+dc,tr=r+2*dr,tc=c+2*dc;if(!inb(tr,tc))continue;const m=b[mr][mc];
+if(m&&Math.sign(m)!==Math.sign(p)&&!caps.some(([a,d])=>a===mr&&d===mc)&&b[tr][tc]===0){any=true;const np=[...path,[tr,tc]],nc=[...caps,[mr,mc]];
+if(Math.abs(p)===1&&tr===(p>0?0:7))out.push({path:np,caps:nc});else jumps(b,tr,tc,p,nc,np,out)}}
+if(!any&&caps.length)out.push({path,caps})}
+function gen(b,s){const out=[];for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=b[r][c];if(Math.sign(p)!==s)continue;b[r][c]=0;jumps(b,r,c,p,[],[[r,c]],out);b[r][c]=p}
+if(out.length)return out;for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=b[r][c];if(Math.sign(p)!==s)continue;
+for(const[dr,dc]of dirs(p))if(inb(r+dr,c+dc)&&!b[r+dr][c+dc])out.push({path:[[r,c],[r+dr,c+dc]],caps:[]})}return out}
+function apply(b,m,upto=m.path.length-1){const n=b.map(r=>[...r]),[r,c]=m.path[0];let p=n[r][c];n[r][c]=0;m.caps.slice(0,upto).forEach(([a,d])=>n[a][d]=0);
+const[er,ec]=m.path[upto];if(upto===m.path.length-1&&Math.abs(p)===1&&er===(p>0?0:7))p*=2;n[er][ec]=p;return n}
+function evalR(b){let s=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=b[r][c];if(!p)continue;s+=Math.sign(p)*(Math.abs(p)===2?160:100+(p>0?7-r:r)*3+(c>1&&c<6?2:0))}return s}
+function nm(b,s,d,a,be){const ms=gen(b,s);if(!ms.length)return -100000-d;if(!d)return s*evalR(b);
+for(const m of ms){const v=-nm(apply(b,m),-s,d-1,-be,-a);if(v>a)a=v;if(a>=be)break}return a}
+function cpu(){const ms=gen(b,-1),d=+$('lvl').value;let best=-Infinity,pick=[];
+for(const m of ms){const v=-nm(apply(b,m),1,d-1,-Infinity,Infinity)+Math.random()*(d===1?60:1);if(v>best){best=v;pick=m}}
+b=apply(b,pick);lastMv=pick.path;busy=false;check()}
+function check(){if(!gen(b,1).length){over=true;$('msg').textContent='The computer wins this time. Try again!'}
+else if(!gen(b,-1).length){over=true;$('msg').textContent='🎉 You win!'}else $('msg').textContent='Your turn';render()}
+function render(){const el=$('b');el.innerHTML='';const show=sel?apply(b,cands[0],stepI):b;
+const tg=new Set(sel?cands.map(m=>m.path[stepI+1].join()):[]),cur=sel?cands[0].path[stepI].join():'';
+for(let r=0;r<8;r++)for(let c=0;c<8;c++){const d=document.createElement('div');d.className='sq '+((r+c)%2?'d':'l');
+if(cur===r+','+c)d.classList.add('sel');if(lastMv.some(q=>q[0]===r&&q[1]===c))d.classList.add('last');if(tg.has(r+','+c))d.classList.add('tgt');
+const p=show[r][c];if(p){const pc=document.createElement('div');pc.className='pc '+(p>0?'r':'k');if(Math.abs(p)===2)pc.textContent='👑';d.appendChild(pc)}
+d.onclick=()=>click(r,c);el.appendChild(d)}}
+function click(r,c){if(busy||over)return;
+if(sel&&cands.some(m=>m.path[stepI+1][0]===r&&m.path[stepI+1][1]===c)){cands=cands.filter(m=>m.path[stepI+1][0]===r&&m.path[stepI+1][1]===c);stepI++;
+const done=cands.find(m=>m.path.length-1===stepI);if(done){b=apply(b,done);lastMv=done.path;sel=null;cands=[];render();
+if(!gen(b,-1).length){check();return}busy=true;$('msg').textContent='Computer is thinking...';setTimeout(cpu,500)}else render();return}
+if(sel&&stepI>0)return;// in the middle of a multi-jump
+const mine=gen(b,1).filter(m=>m.path[0][0]===r&&m.path[0][1]===c);if(mine.length){sel=[r,c];cands=mine;stepI=0}else{sel=null;cands=[]}render()}
+function newGame(){init();sel=null;cands=[];stepI=0;busy=false;over=false;lastMv=[];check()}
+$('new').onclick=newGame;newGame();
+</script></body></html>

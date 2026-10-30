@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dots and Boxes</title><link rel="stylesheet" href="../style.css">
+<style>#b{display:grid;width:min(92vw,440px);aspect-ratio:1}
+.dot{background:#fff;border-radius:50%}.ln{cursor:pointer;border-radius:4px;margin:2px}.ln:hover{background:rgba(255,255,255,.25)}
+.ln.p{background:#ff6fb5;cursor:default}.ln.c{background:#5ce1e6;cursor:default}
+.bx{display:flex;align-items:center;justify-content:center;font-size:1.6rem;border-radius:6px;margin:4px}.bx.p{background:rgba(255,111,181,.35)}.bx.c{background:rgba(92,225,230,.35)}</style></head>
+<body>
+<a class="back" href="../index.html">← All games</a>
+<h1>🔲 Dots &amp; Boxes</h1>
+<div class="bar"><select id="sz"><option value="3">Small</option><option value="4" selected>Medium</option><option value="5">Large</option></select>
+<select id="lvl"><option value="easy">Easy</option><option value="hard" selected>Hard</option></select>
+<select id="mode"><option value="cpu">vs Computer</option><option value="2">2 players</option></select><button id="new">New game</button></div>
+<div class="bar"><span class="stat" id="s0">You: 0</span><span class="stat" id="s1">Computer: 0</span></div>
+<div id="b"></div><p class="msg" id="msg"></p>
+<p style="max-width:440px;text-align:center;font-size:.9rem">Take turns drawing lines. Finish the 4th side of a box to claim it and go again! Try not to draw the 3rd side of a box.</p>
+<script>
+const $=id=>document.getElementById(id);let N,lines,boxes,turn,pts,busy,over;
+// line keys: h,r,c (r 0..N, c 0..N-1)  v,r,c (r 0..N-1, c 0..N)
+const all=()=>{const o=[];for(let r=0;r<=N;r++)for(let c=0;c<N;c++)o.push('h,'+r+','+c);for(let r=0;r<N;r++)for(let c=0;c<=N;c++)o.push('v,'+r+','+c);return o};
+const sides=(L,r,c)=>['h,'+r+','+c,'h,'+(r+1)+','+c,'v,'+r+','+c,'v,'+r+','+(c+1)].filter(k=>L.has(k)).length;
+function adj(k){const[t,r,c]=k.split(',');const R=+r,C=+c,o=[];if(t==='h'){if(R>0)o.push([R-1,C]);if(R<N)o.push([R,C])}else{if(C>0)o.push([R,C-1]);if(C<N)o.push([R,C])}return o}
+function free(L){return all().filter(k=>!L.has(k))}
+function names(){return $('mode').value==='cpu'?['You','Computer']:['Player 1','Player 2']}
+function draw(k){lines.set(k,turn);let got=0;for(const[r,c]of adj(k))if(sides(lines,r,c)===4){boxes[r][c]=turn;pts[turn]++;got++}
+if(!got)turn=1-turn;render();
+if(!free(lines).length){over=true;const n=names();$('msg').textContent=pts[0]===pts[1]?"It's a tie!":pts[0]>pts[1]&&n[0]==='You'?'🎉 You win!':`${pts[0]>pts[1]?n[0]:n[1]} wins!${n[1]==='Computer'?' Try again!':' 🎉'}`;return}
+$('msg').textContent=names()[turn]+(names()[turn]==='You'?"r turn":"'s turn");
+if($('mode').value==='cpu'&&turn===1){busy=true;setTimeout(cpu,450)}else busy=false}
+function givesAway(L,k){// how many boxes the opponent could grab in a row after we draw k
+const S=new Set(L.keys());S.add(k);let n=0,go=true;while(go){go=false;for(const f of free(S))if(adj(f).some(([r,c])=>sides(S,r,c)===3)){S.add(f);n+=adj(f).filter(([r,c])=>sides(S,r,c)===4).length;go=true;break}}return n}
+function cpu(){const L=new Set(lines.keys()),F=free(lines),rnd=a=>a[Math.floor(Math.random()*a.length)];
+const take=F.filter(k=>adj(k).some(([r,c])=>sides(L,r,c)===3));
+if(take.length&&($('lvl').value==='hard'||Math.random()<.7)){draw(rnd(take));return}
+const safe=F.filter(k=>adj(k).every(([r,c])=>sides(L,r,c)<2));
+if(safe.length&&($('lvl').value==='hard'||Math.random()<.6)){draw(rnd(safe));return}
+if($('lvl').value==='easy'){draw(rnd(F));return}
+let best=Infinity,pick=[];for(const k of F){const g=givesAway(L,k);if(g<best){best=g;pick=[k]}else if(g===best)pick.push(k)}draw(rnd(pick))}
+function render(){const el=$('b'),n=names(),cls=['p','c'];el.style.gridTemplateColumns=el.style.gridTemplateRows=`repeat(${N},14px 1fr) 14px`;el.innerHTML='';
+for(let i=0;i<=2*N;i++)for(let j=0;j<=2*N;j++){const d=document.createElement('div');
+if(i%2===0&&j%2===0)d.className='dot';
+else if(i%2===0||j%2===0){const k=i%2===0?'h,'+i/2+','+(j-1)/2:'v,'+(i-1)/2+','+j/2;d.className='ln';if(lines.has(k))d.classList.add(cls[lines.get(k)]);
+d.onclick=()=>{if(busy||over||lines.has(k))return;draw(k)}}
+else{const v=boxes[(i-1)/2][(j-1)/2];d.className='bx';if(v!==null){d.classList.add(cls[v]);d.textContent=v?(n[1]==='Computer'?'🤖':'2'):(n[0]==='You'?'⭐':'1')}}
+el.appendChild(d)}
+$('s0').textContent=n[0]+': '+pts[0];$('s1').textContent=n[1]+': '+pts[1];$('s0').style.outline=turn===0&&!over?'3px solid #ff6fb5':'';$('s1').style.outline=turn===1&&!over?'3px solid #5ce1e6':''}
+function newGame(){N=+$('sz').value;lines=new Map();boxes=[...Array(N)].map(()=>Array(N).fill(null));turn=0;pts=[0,0];busy=over=false;render();$('msg').textContent=names()[0]==='You'?'Your turn':"Player 1's turn"}
+['sz','lvl','mode'].forEach(i=>$(i).onchange=newGame);$('new').onclick=newGame;newGame();
+</script></body></html>

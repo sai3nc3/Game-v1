@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gravity Flip</title><link rel="stylesheet" href="../style.css"></head>
+<body>
+<a class="back" href="../index.html">← All games</a>
+<h1>🔄 Gravity Flip</h1>
+<div class="bar"><span class="stat">Distance: <b id="score">0</b></span><span class="stat">Best: <b id="best">0</b></span></div>
+<canvas id="c" width="800" height="400"></canvas>
+<p class="msg" id="msg">Press Space or click to flip gravity. Dodge the walls! Press Space to start.</p>
+<script>
+const $=id=>document.getElementById(id),c=$('c'),x=c.getContext('2d'),W=800,H=400,TOP=40,BOT=360,P=28,PX=160;
+let best=+(localStorage.getItem('flipBest')||0);$('best').textContent=best;
+let p,obs,speed,dist,running=false,lastSide,hue=0,trail=[];
+function reset(){p={y:BOT-P,vy:0,dir:1,on:true};obs=[];speed=6;dist=0;lastSide='t';trail=[]}
+function spawn(){const side=Math.random()<.75?(lastSide==='b'?'t':'b'):lastSide;lastSide=side;
+const w=30+Math.random()*90,h=60+Math.random()*120,prev=obs[obs.length-1];
+const gap=prev?speed*44+w+Math.random()*160:300;obs.push({x:(prev?prev.x+prev.w:W)+gap,w,h,side,spike:Math.random()<.4})}
+function step(){if(!running)return;speed=Math.min(12,6+dist/4000);dist+=speed;hue=(hue+.5)%360;
+p.vy+=.8*p.dir;p.vy=Math.max(-14,Math.min(14,p.vy));p.y+=p.vy;p.on=false;
+if(p.dir>0&&p.y+P>=BOT){p.y=BOT-P;p.vy=0;p.on=true}if(p.dir<0&&p.y<=TOP){p.y=TOP;p.vy=0;p.on=true}
+trail.push(p.y);if(trail.length>12)trail.shift();
+obs.forEach(o=>o.x-=speed);obs=obs.filter(o=>o.x+o.w>-10);while(obs.length<6)spawn();
+for(const o of obs){const oy=o.side==='b'?BOT-o.h:TOP;if(PX+3<o.x+o.w&&PX+P-3>o.x&&p.y+3<oy+o.h&&p.y+P-3>oy){
+running=false;const s=Math.floor(dist/50);$('msg').textContent=`Crash! Distance ${s}. Press Space to try again.`;
+if(s>best){best=s;localStorage.setItem('flipBest',best);$('best').textContent=best;$('msg').textContent+=' New best! 🎉'}}}
+$('score').textContent=Math.floor(dist/50)}
+function draw(){x.fillStyle='#0f0b2b';x.fillRect(0,0,W,H);const col=`hsl(${hue},90%,65%)`;
+x.fillStyle='#1b1640';x.fillRect(0,0,W,TOP);x.fillRect(0,BOT,W,H-BOT);x.fillStyle=col;x.fillRect(0,TOP-2,W,2);x.fillRect(0,BOT,W,2);
+for(const o of obs){const oy=o.side==='b'?BOT-o.h:TOP;x.fillStyle='#2a2360';x.fillRect(o.x,oy,o.w,o.h);x.strokeStyle=col;x.lineWidth=2;x.strokeRect(o.x+1,oy+1,o.w-2,o.h-2);
+if(o.spike){x.fillStyle='#fff';const ty=o.side==='b'?oy:oy+o.h,d=o.side==='b'?-1:1;for(let sx=o.x;sx+14<=o.x+o.w;sx+=14){x.beginPath();x.moveTo(sx,ty);x.lineTo(sx+7,ty+12*d);x.lineTo(sx+14,ty);x.fill()}}}
+trail.forEach((ty,i)=>{x.globalAlpha=i/trail.length*.4;x.fillStyle=col;x.fillRect(PX-(trail.length-i)*6,ty+4,P-8,P-8)});x.globalAlpha=1;
+x.fillStyle=col;x.fillRect(PX,p.y,P,P);x.fillStyle='#0f0b2b';const ey=p.dir>0?p.y+9:p.y+P-13;x.fillRect(PX+16,ey,5,5);x.fillRect(PX+8,ey,5,5)}
+let last=performance.now(),acc=0;
+function frame(t){acc+=Math.min(100,t-last);last=t;while(acc>=1000/60){step();acc-=1000/60}draw();requestAnimationFrame(frame)}
+function press(){if(!running){reset();running=true;$('msg').textContent='';return}if(p.on){p.dir*=-1;p.on=false}}
+addEventListener('keydown',e=>{if([' ','ArrowUp','ArrowDown','w','s'].includes(e.key)){e.preventDefault();if(!e.repeat)press()}});
+c.addEventListener('mousedown',press);c.addEventListener('touchstart',e=>{e.preventDefault();press()},{passive:false});
+reset();requestAnimationFrame(frame);
+</script></body></html>
