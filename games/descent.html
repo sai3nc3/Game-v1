@@ -46,7 +46,7 @@ function blocks(){const w=4.2,lanes=[-1.4,0,1.4];let open=1;for(let i=0;i<14;i++
  addSeg([strip(gen.x,w,gen.h)],obs)}}
 function zigzag(){for(let i=0;i<4;i++){gen.x+=(i%2?-1:1)*.9;for(let k=0;k<3;k++)addSeg([strip(gen.x,1.9,gen.h)]);gen.h-=.3}}
 // jump pad: launches the ball over a long gap onto a lower landing
-function padSeg(w){addSeg([strip(gen.x,w,gen.h)]);segs[segs.length-1].pad={x:gen.x,w:Math.min(w,2.2)}}
+function padSeg(w){addSeg([strip(gen.x,w,gen.h)]);segs[segs.length-1].pad={x:gen.x,w}}
 function pad(){addSeg([strip(gen.x,3.2,gen.h)]);padSeg(3.2);const n=3+(Math.random()<difficulty()?1:0);
  for(let i=0;i<n;i++)addSeg([],[],i===1?[{x:gen.x,z:segs.length*L+L/2,h:gen.h+2.2}]:[]);gen.h-=1.5;for(let i=0;i<12;i++)addSeg([strip(gen.x,3.4,gen.h)])}
 // jump pad in front of a wall of blocks you can't steer around
