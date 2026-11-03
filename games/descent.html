@@ -23,10 +23,10 @@ function addSeg(strips,obs=[],gems=[]){segs.push({strips,obs,gems})}
 function strip(x,w,h0,h1=h0){return{x,w,h0,h1}}
 function difficulty(){return Math.min(1,segs.length/900)}
 function chunk(){const d=difficulty(),r=Math.random(),z=()=>segs.length*L+L/2;
-const pick=[['curve',3],['gap',1.4+d],['narrow',1+d],['split',1+d],['ramp',.8+d],['steps',1],['blocks',.6+d*1.4],['zigzag',.6+d],['movers',.4+d*1.4]];
+const pick=[['curve',3],['gap',1.4+d],['narrow',1+d],['split',1+d],['ramp',.8+d],['steps',1],['blocks',.6+d*1.4],['zigzag',.6+d],['movers',.4+d*1.4],['pad',1.2],['padwall',.5+d],['tunnel',1.4]];
 if(segs.length<30){return curve(30,0)}
 let tot=pick.reduce((a,p)=>a+p[1],0),q=Math.random()*tot,kind='curve';for(const p of pick){if((q-=p[1])<0){kind=p[0];break}}
-const n0=segs.length;({curve:()=>curve(10+Math.floor(Math.random()*10),.12+d*.2),gap,narrow,split,ramp,steps,blocks,zigzag,movers})[kind]();for(let i=n0;i<segs.length;i++)segs[i].kind=kind;
+const n0=segs.length;({curve:()=>curve(10+Math.floor(Math.random()*10),.12+d*.2),gap,narrow,split,ramp,steps,blocks,zigzag,movers,pad,padwall,tunnel})[kind]();for(let i=n0;i<segs.length;i++)segs[i].kind=kind;
 curve(3+Math.floor((1-d)*4),0)}// a short calm stretch between features
 function curve(n,obsChance){for(let i=0;i<n;i++){gen.ph+=gen.turn;gen.x+=Math.sin(gen.ph)*.22;const w=3.2,obs=[],gm=[];
  if(Math.random()<obsChance&&i%2===0&&i>1)obs.push({x:gen.x+(Math.random()-.5)*(w-1),z:segs.length*L+L/2,s:.36});
@@ -45,6 +45,17 @@ function blocks(){const w=4.2,lanes=[-1.4,0,1.4];let open=1;for(let i=0;i<14;i++
  open=Math.max(0,Math.min(2,open+(Math.random()<.5?-1:1)));lanes.forEach((l,k)=>{if(k!==open)obs.push({x:gen.x+l,z:segs.length*L+L/2,s:.4})})}
  addSeg([strip(gen.x,w,gen.h)],obs)}}
 function zigzag(){for(let i=0;i<4;i++){gen.x+=(i%2?-1:1)*.9;for(let k=0;k<3;k++)addSeg([strip(gen.x,1.9,gen.h)]);gen.h-=.3}}
+// jump pad: launches the ball over a long gap onto a lower landing
+function padSeg(w){addSeg([strip(gen.x,w,gen.h)]);segs[segs.length-1].pad={x:gen.x,w:Math.min(w,2.2)}}
+function pad(){addSeg([strip(gen.x,3.2,gen.h)]);padSeg(3.2);const n=3+(Math.random()<difficulty()?1:0);
+ for(let i=0;i<n;i++)addSeg([],[],i===1?[{x:gen.x,z:segs.length*L+L/2,h:gen.h+2.2}]:[]);gen.h-=1.5;for(let i=0;i<12;i++)addSeg([strip(gen.x,3.4,gen.h)])}
+// jump pad in front of a wall of blocks you can't steer around
+function padwall(){addSeg([strip(gen.x,3.4,gen.h)]);padSeg(3.4);addSeg([strip(gen.x,3.4,gen.h)]);
+ addSeg([strip(gen.x,3.4,gen.h)],[-1.2,-.4,.4,1.2].map(o=>({x:gen.x+o,z:segs.length*L+L/2,s:.4})));for(let i=0;i<8;i++)addSeg([strip(gen.x,3.4,gen.h)])}
+// tunnel: walls keep you on the track, but there are blocks to dodge inside
+function tunnel(){const n=16+Math.floor(Math.random()*8),w=2.8;for(let i=0;i<n;i++){gen.ph+=.18;gen.x+=Math.sin(gen.ph)*.2;
+ const obs=(i>3&&i<n-2&&i%4===0)?[{x:gen.x+(Math.random()<.5?-.75:.75),z:segs.length*L+L/2,s:.38}]:[];
+ addSeg([strip(gen.x,w,gen.h)],obs,i%4===2?[{x:gen.x,z:segs.length*L+L/2}]:[]);segs[segs.length-1].tunnel=true}}
 function movers(){for(let i=0;i<12;i++){const obs=i%3===1?[{x:gen.x,z:segs.length*L+L/2,s:.4,amp:1.05,ph:Math.random()*6}]:[];addSeg([strip(gen.x,3.4,gen.h)],obs)}}
 function ensure(z){while(segs.length*L<z+VIEW+20)chunk()}
 // ---- physics ----
@@ -62,7 +73,13 @@ const dir=((keys.has('ArrowRight')||keys.has('KeyD'))?1:0)-((keys.has('ArrowLeft
 ball.vz=Math.min(30,ball.vz+dt*.16);const steer=6+ball.vz*.12;ball.vx+=(dir*steer-ball.vx)*Math.min(1,dt*9);tilt+=(dir-tilt)*dt*6;
 const px=ball.x;ball.x+=ball.vx*dt;ball.z+=ball.vz*dt;ball.vy-=G*dt;ball.y+=ball.vy*dt;ball.roll+=ball.vz*dt/R;
 const g=groundAt(ball.x,ball.z);
-if(g&&ball.y<=g.h){if(ball.y>=g.h-.35){ball.y=g.h;ball.vy=g.dh*ball.vz;ball.lastG=g.h}
+const cs=segs[Math.floor(ball.z/L)];
+if(cs&&cs.tunnel&&cs.strips[0]&&ball.y>cs.strips[0].h0-.3){const st=cs.strips[0],lo=st.x-st.w/2+R,hi=st.x+st.w/2-R;
+ if(ball.x<lo||ball.x>hi){ball.x=Math.max(lo,Math.min(hi,ball.x));ball.vx*=-.35;
+  for(let i=0;i<6;i++)parts.push({x:ball.x,y:ball.y+R,z:ball.z,vx:(Math.random()-.5)*3,vy:Math.random()*3,vz:ball.vz*.8,life:18,col:'#ffe36e'})}}
+if(g&&ball.y<=g.h){if(ball.y>=g.h-.35){ball.y=g.h;ball.vy=g.dh*ball.vz;ball.lastG=g.h;
+ if(cs&&cs.pad&&Math.abs(ball.x-cs.pad.x)<cs.pad.w/2&&ball.z-Math.floor(ball.z/L)*L>.3){ball.vy=11.5;ball.y+=.02;shake=4;
+  for(let i=0;i<18;i++)parts.push({x:ball.x,y:ball.y,z:ball.z,vx:(Math.random()-.5)*4,vy:Math.random()*6,vz:ball.vz*.5,life:25,col:'#b6ff5c'})}}
  else if(ball.y>g.h-T-R*2){const was=groundAt(px,ball.z);if(was&&was.h>ball.y)return crash('You hit a wall!');// rolled into the front of a ledge
   ball.x=px;ball.vx=0}}// slid against the side while falling: just keep falling (and far below the track, pass under it)
 for(const k of[-1,0,1]){const s=segs[Math.floor(ball.z/L)+k];if(!s)continue;
@@ -79,6 +96,18 @@ function proj(px,py,pz){const dx=px-camWX,dy=(py-pz*S)-camWY,dz=pz-camZ,y2=dy*CP
 function poly(pts,fill,stroke,a){const P=pts.map(p=>proj(...p));if(P.some(p=>!p))return;x.beginPath();x.moveTo(P[0][0],P[0][1]);for(let i=1;i<P.length;i++)x.lineTo(P[i][0],P[i][1]);x.closePath();
  x.globalAlpha=a;x.fillStyle=fill;x.fill();if(stroke){x.strokeStyle=stroke;x.lineWidth=1.6;x.stroke()}x.globalAlpha=1}
 function fog(z){return Math.max(0,Math.min(1,1-Math.pow((z-camZ)/VIEW,1.6)))}
+function drawPad(pd,st,z0){const a=fog(z0),l=pd.x-pd.w/2,r=pd.x+pd.w/2,n=z0+.25,f=z0+L-.25,h=st.h0+.01,pulse=.6+.4*Math.sin(t*10);
+ poly([[l,h,n],[r,h,n],[r,h,f],[l,h,f]],`rgba(120,255,80,${.25+.25*pulse})`,'#b6ff5c',a);
+ for(let k=0;k<3;k++){const zz=n+.3+k*.45,P=[proj(pd.x-.5,h,zz),proj(pd.x,h,zz+.35),proj(pd.x+.5,h,zz)];if(P.some(q=>!q))continue;// chevrons pointing forward
+  x.globalAlpha=a;x.strokeStyle='#eaffb0';x.lineWidth=3;x.beginPath();x.moveTo(P[0][0],P[0][1]);x.lineTo(P[1][0],P[1][1]);x.lineTo(P[2][0],P[2][1]);x.stroke();x.globalAlpha=1}}
+const TH=2.7;// tunnel height
+function tunnelShape(st,h,z){const l=st.x-st.w/2,r=st.x+st.w/2;return[[l,h,z],[l,h+TH-.7,z],[l+.6,h+TH,z],[r-.6,h+TH,z],[r,h+TH-.7,z],[r,h,z]]}
+function drawTunnel(st,z0){const z1=z0+L,a=fog(z0),A=tunnelShape(st,st.h0,z0),B=tunnelShape(st,st.h1,z1),hue=(z0*.6+280)%360,edge=`hsl(${hue},100%,70%)`;
+ // translucent panels between this rib and the next (walls and roof), drawn from the far side in
+ const order=[[0,1],[4,5],[1,2],[3,4],[2,3]].sort((p,q)=>Math.abs((A[q[0]][0]+A[q[1]][0])/2-camWX)-Math.abs((A[p[0]][0]+A[p[1]][0])/2-camWX));
+ for(const[i,j]of order)poly([A[i],A[j],B[j],B[i]],`hsla(${hue},80%,45%,.16)`,null,a);
+ const P=A.map(q=>proj(...q));if(P.some(q=>!q))return;x.globalAlpha=a;x.strokeStyle=edge;x.lineWidth=2.5;x.shadowColor=edge;x.shadowBlur=8;
+ x.beginPath();x.moveTo(P[0][0],P[0][1]);for(const q of P.slice(1))x.lineTo(q[0],q[1]);x.stroke();x.shadowBlur=0;x.globalAlpha=1}
 function drawStrip(st,z0){const z1=z0+L,l=st.x-st.w/2,r=st.x+st.w/2,a=fog(z0),hue=(z0*.6+200)%360;
  const edge=`hsl(${hue},100%,65%)`;
  if(camWX<l)poly([[l,st.h0,z0],[l,st.h1,z1],[l,st.h1-T,z1],[l,st.h0-T,z0]],'#140a2e',edge,a);
@@ -110,7 +139,8 @@ function draw(){camWX=cam.x;camZ=ball.z-4.6;camWY=cam.y-camZ*S+2.1;
  x.save();if(shake>0){x.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.9}
  drawSky();x.save();x.translate(W/2,H/2);x.rotate(-tilt*.04);x.translate(-W/2,-H/2);
  const i0=Math.max(0,Math.floor((ball.z-6)/L)),i1=Math.min(segs.length-1,Math.floor((ball.z+VIEW)/L)),items=[];
- for(let i=i0;i<=i1;i++){const s=segs[i],z0=i*L;for(const st of s.strips)items.push({k:z0+L,d:Math.abs(st.x-camWX),f:()=>drawStrip(st,z0)});
+ for(let i=i0;i<=i1;i++){const s=segs[i],z0=i*L;for(const st of s.strips)items.push({k:z0+L,d:Math.abs(st.x-camWX),f:()=>{drawStrip(st,z0);if(s.pad)drawPad(s.pad,st,z0)}});
+  if(s.tunnel&&s.strips[0])items.push({k:z0+.001,d:-2,f:()=>drawTunnel(s.strips[0],z0)});
   for(const o of s.obs){const ox=obsX(o);items.push({k:o.z+o.s,d:Math.abs(ox-camWX),f:()=>drawCube(ox,(groundAt(ox,o.z)||{h:0}).h,o.z,o.s)})}
   for(const gm of s.gems)items.push({k:gm.z,d:0,f:()=>drawGem(gm)})}
  if(state!=='over')items.push({k:ball.z+.01,d:-1,f:drawBall});
