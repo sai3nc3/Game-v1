@@ -20,7 +20,7 @@ $('best').textContent=best;
 // ---- track generation ----
 // each segment i covers z in [i*L,(i+1)*L) and holds strips {x,w,h0,h1}; obstacles {x,z,s,amp,ph}; gems {x,z,h}
 let glitch=false,spaceHits=0,segs2=null,gen2=null,merged=0;
-function addSeg(strips,obs=[],gems=[]){segs.push({strips,obs,gems})}
+function addSeg(strips,obs=[],gems=[]){segs.push({strips,obs,gems,cx:gen.x,ch:gen.h})}
 function strip(x,w,h0,h1=h0,flags={}){return{x,w,h0,h1,...flags}}
 function difficulty(){return Math.min(1,segs.length/900)}
 function chunk(){const d=difficulty(),r=Math.random(),z=()=>segs.length*L+L/2;
@@ -65,7 +65,9 @@ function movers(){for(let i=0;i<12;i++){const obs=i%3===1?[{x:gen.x,z:segs.lengt
 function ensure(z){while(segs.length*L<z+VIEW+20)chunk();if(glitch)mergeSecond()}
 // a second, separately generated map laid into the same space as the first
 function mergeSecond(){const s1=segs,g1=gen;segs=segs2;gen=gen2;while(segs.length<s1.length)chunk();segs2=segs;gen2=gen;segs=s1;gen=g1;
- for(;merged<segs.length;merged++){const a=segs[merged],b=segs2[merged];a.strips.push(...b.strips);a.obs.push(...b.obs);a.gems.push(...b.gems)}}
+ for(;merged<segs.length;merged++){const a=segs[merged],b=segs2[merged],dx=a.cx-b.cx,dh=a.ch-b.ch;// lay it right on top of the first map
+  a.strips.push(...b.strips.map(st=>({...st,x:st.x+dx,h0:st.h0+dh,h1:st.h1+dh,...(st.tz?{tz:st.tz}:{})})));
+  a.obs.push(...b.obs.map(o=>({...o,x:o.x+dx})));a.gems.push(...b.gems.map(g=>({...g,x:g.x+dx,...(g.h!==undefined?{h:g.h+dh}:{})})))}}
 // ---- physics ----
 function obsX(o){return o.amp?o.x+Math.sin(t*2.2+o.ph)*o.amp:o.x}
 const TH=2.7,ROOF=.35;// tunnel inner height and roof thickness
@@ -111,8 +113,14 @@ trail.push({x:ball.x,y:ball.y,z:ball.z});if(trail.length>14)trail.shift();
 parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;p.vy-=G*dt*.5;p.life--});parts=parts.filter(p=>p.life>0)}
 // ---- 3D drawing ----
 let camWX,camWY,camZ;
-function proj(px,py,pz){const dx=px-camWX,dy=(py-pz*S)-camWY,dz=pz-camZ,y2=dy*CP+dz*SP,z2=dz*CP-dy*SP;if(z2<.2)return null;return[W/2+dx*F/z2,H*.42-y2*F/z2,z2]}
-function poly(pts,fill,stroke,a){const P=pts.map(p=>proj(...p));if(P.some(p=>!p))return;x.beginPath();x.moveTo(P[0][0],P[0][1]);for(let i=1;i<P.length;i++)x.lineTo(P[i][0],P[i][1]);x.closePath();
+function toCam(px,py,pz){const dx=px-camWX,dy=(py-pz*S)-camWY,dz=pz-camZ;return[dx,dy*CP+dz*SP,dz*CP-dy*SP]}
+const NEAR=.2,scr=c=>[W/2+c[0]*F/c[2],H*.42-c[1]*F/c[2],c[2]];
+function proj(px,py,pz){const c=toCam(px,py,pz);return c[2]<NEAR?null:scr(c)}
+// faces that reach behind the camera are cut at the near plane instead of skipped (so tunnel walls right beside you still draw)
+function poly(pts,fill,stroke,a){const C=pts.map(p=>toCam(...p)),K=[];
+ for(let i=0;i<C.length;i++){const p=C[i],q=C[(i+1)%C.length],pin=p[2]>=NEAR,qin=q[2]>=NEAR;if(pin)K.push(p);
+  if(pin!==qin){const u=(NEAR-p[2])/(q[2]-p[2]);K.push([p[0]+(q[0]-p[0])*u,p[1]+(q[1]-p[1])*u,NEAR])}}
+ if(K.length<3)return;const P=K.map(scr);x.beginPath();x.moveTo(P[0][0],P[0][1]);for(let i=1;i<P.length;i++)x.lineTo(P[i][0],P[i][1]);x.closePath();
  x.globalAlpha=a;x.fillStyle=fill;x.fill();if(stroke){x.strokeStyle=stroke;x.lineWidth=1.6;x.stroke()}x.globalAlpha=1}
 function fog(z){return Math.max(0,Math.min(1,1-Math.pow((z-camZ)/VIEW,1.6)))}
 function drawPad(pd,st,z0){const a=fog(z0),l=pd.x-pd.w/2,r=pd.x+pd.w/2,n=z0+.25,f=z0+L-.25,h=st.h0+.01,pulse=.6+.4*Math.sin(t*10);
@@ -189,7 +197,7 @@ function tear(){const n=1+Math.floor(Math.random()*4);for(let i=0;i<n;i++){if(Ma
  if(Math.random()<.3){x.globalCompositeOperation='lighter';x.fillStyle=`hsla(${Math.random()*360},100%,50%,.12)`;x.fillRect(0,Math.random()*H,W,10+Math.random()*80);x.globalCompositeOperation='source-over'}
  if(Math.random()<.04){x.globalCompositeOperation='difference';x.fillStyle='#fff';x.fillRect(0,0,W,H);x.globalCompositeOperation='source-over'}}
 function glitchOn(){const i0=Math.floor(ball.z/L)+3,here=segs[i0].strips[0]||{x:ball.x,h0:ball.lastG};
- segs2=Array.from({length:i0},()=>({strips:[],obs:[],gems:[]}));gen2={x:here.x+(Math.random()-.5)*2,h:here.h0,ph:Math.random()*6,turn:.15};merged=i0;
+ segs2=Array.from({length:i0},()=>({strips:[],obs:[],gems:[],cx:0,ch:0}));gen2={x:here.x+(Math.random()-.5)*2,h:here.h0,ph:Math.random()*6,turn:.15};merged=i0;
  glitch=true;shake=16;mergeSecond()}
 // ---- loop & input ----
 let last=performance.now(),acc=0;
